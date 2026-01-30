@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>慢跑紀錄 | Running Log</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #6A9C89;
+            --primary-dark: #5d8b7a;
+            --accent-color: #FFB085;
+            --bg-color: #F7F9FB;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --text-main: #2C3E50;
+            --text-sub: #95A5A6;
+            --radius-md: 16px;
+            --radius-sm: 8px;
+            --shadow-soft: 0 10px 40px rgba(0, 0, 0, 0.05);
+            --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.03);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle at 10% 20%, rgba(106, 156, 137, 0.1) 0%, transparent 20%),
+                              radial-gradient(circle at 90% 80%, rgba(255, 176, 133, 0.1) 0%, transparent 20%);
+            min-height: 100vh;
+            padding: 40px 20px;
+            color: var(--text-main);
+        }
+
+        .container { max-width: 500px; margin: 0 auto; }
+
+        /* 通用卡片樣式 */
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 30px;
+            border-radius: 24px;
+            box-shadow: var(--shadow-soft);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            margin-bottom: 30px;
+        }
+
+        h2 { text-align: center; font-weight: 700; margin-bottom: 20px; letter-spacing: 1px; color: var(--primary-color); }
+        h3.section-title { font-size: 1.1rem; margin-bottom: 16px; color: var(--text-main); font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        h3.section-title::before { content: ''; display: block; width: 4px; height: 18px; background: var(--accent-color); border-radius: 2px; }
+
+        /* 表單樣式 */
+        .form-group { margin-bottom: 20px; }
+        label { display: block; color: var(--text-sub); font-size: 0.9rem; margin-bottom: 8px; font-weight: 500; }
+        input[type="number"], input[type="date"], input[type="text"], textarea {
+            width: 100%; padding: 12px 16px; border: none; background: #EFF2F5;
+            border-radius: var(--radius-md); font-size: 1rem; color: var(--text-main);
+            transition: all 0.3s ease;
+        }
+        input:focus { outline: none; background: #FFFFFF; box-shadow: 0 0 0 3px rgba(106, 156, 137, 0.2); }
+        .row { display: flex; gap: 16px; }
+        .col { flex: 1; }
+        .input-wrapper { position: relative; }
+        .unit { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: var(--text-sub); font-size: 0.85rem; pointer-events: none; }
+
+        /* 舒適度選擇器 */
+        .comfort-selector { display: flex; justify-content: space-between; background: #EFF2F5; padding: 4px; border-radius: var(--radius-md); }
+        .comfort-option { flex: 1; text-align: center; position: relative; }
+        .comfort-option input { position: absolute; opacity: 0; cursor: pointer; height: 100%; width: 100%; left: 0; top: 0; z-index: 2; }
+        .comfort-label { display: block; padding: 8px 0; border-radius: var(--radius-sm); font-size: 1.2rem; transition: all 0.3s; }
+        .comfort-option input:checked + .comfort-label { background: #FFFFFF; box-shadow: 0 2px 8px rgba(0,0,0,0.05); transform: scale(1.1); }
+
+        .btn-submit {
+            width: 100%; padding: 14px; background: var(--primary-color); color: white;
+            border: none; border-radius: var(--radius-md); font-size: 1rem; font-weight: 600;
+            cursor: pointer; transition: all 0.2s; margin-top: 10px;
+        }
+        .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(106, 156, 137, 0.3); background-color: var(--primary-dark); }
+
+        /* 圖表區塊 (新增) */
+        .chart-wrapper {
+            position: relative;
+            height: 200px; /* 固定高度 */
+            width: 100%;
+        }
+
+        /* 列表樣式 */
+        .log-list { display: flex; flex-direction: column; gap: 12px; }
+        .log-card {
+            background: #FFFFFF; padding: 16px 20px; border-radius: var(--radius-md);
+            box-shadow: var(--shadow-card); display: flex; justify-content: space-between; align-items: center;
+            position: relative; overflow: hidden; transition: transform 0.2s;
+        }
+        .log-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background-color: var(--primary-color); }
+        .log-info { display: flex; flex-direction: column; gap: 4px; }
+        .log-date { font-size: 0.8rem; color: var(--text-sub); }
+        .stat-dist { font-size: 1.2rem; font-weight: 700; color: var(--text-main); }
+        .stat-dist span { font-size: 0.8rem; font-weight: normal; margin-left: 2px; }
+        .stat-pace { font-size: 0.85rem; color: var(--text-sub); background: #EFF2F5; padding: 2px 8px; border-radius: 6px; display: inline-block;}
+        
+        .btn-delete { background: transparent; border: none; color: #fab1a0; cursor: pointer; padding: 8px; border-radius: 50%; font-size: 1.2rem; line-height: 1;}
+        .btn-delete:hover { color: #e74c3c; background: #FFF0F0; }
+
+        .empty-state { text-align: center; color: var(--text-sub); padding: 20px; font-size: 0.9rem; opacity: 0.7; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="card">
+            <h3 class="section-title">過去 7 天跑量 Weekly Activity</h3>
+            <div class="chart-wrapper">
+                <canvas id="runChart"></canvas>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>NEW ENTRY</h2>
+            <form id="runForm">
+                <div class="form-group">
+                    <label for="date">日期 Date</label>
+                    <input type="date" id="date" required>
+                </div>
+                <div class="row">
+                    <div class="col form-group">
+                        <label for="distance">距離 Distance</label>
+                        <div class="input-wrapper">
+                            <input type="number" id="distance" step="0.01" placeholder="0.00" required>
+                            <span class="unit">km</span>
+                        </div>
+                    </div>
+                    <div class="col form-group">
+                        <label for="duration">時間 Duration</label>
+                        <div class="input-wrapper">
+                            <input type="number" id="duration" placeholder="分鐘" required>
+                            <span class="unit">min</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col form-group">
+                        <label>配速 Pace</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="pace" placeholder="--:--" readonly style="font-weight: bold; color: var(--primary-color);">
+                            <span class="unit">/km</span>
+                        </div>
+                    </div>
+                    <div class="col form-group">
+                        <label>心率 BPM</label>
+                        <div class="input-wrapper">
+                            <input type="number" id="heartRate" placeholder="BPM">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>舒適度 Comfort</label>
+                    <div class="comfort-selector">
+                        <div class="comfort-option"><input type="radio" name="comfort" value="1"><span class="comfort-label">😫</span></div>
+                        <div class="comfort-option"><input type="radio" name="comfort" value="2"><span class="comfort-label">😓</span></div>
+                        <div class="comfort-option"><input type="radio" name="comfort" value="3" checked><span class="comfort-label">😐</span></div>
+                        <div class="comfort-option"><input type="radio" name="comfort" value="4"><span class="comfort-label">🙂</span></div>
+                        <div class="comfort-option"><input type="radio" name="comfort" value="5"><span class="comfort-label">😁</span></div>
+                    </div>
+                </div>
+                <button type="submit" class="btn-submit">儲存紀錄 Save</button>
+            </form>
+        </div>
+
+        <h3 class="section-title" style="padding-left:10px;">近期紀錄 Recent</h3>
+        <div id="logList" class="log-list"></div>
+    </div>
+
+    <script>
+        // --- 核心變數 ---
+        const form = document.getElementById('runForm');
+        const logList = document.getElementById('logList');
+        const dateInput = document.getElementById('date');
+        const distInput = document.getElementById('distance');
+        const durInput = document.getElementById('duration');
+        const paceInput = document.getElementById('pace');
+        const comfortEmojis = { '1': '😫', '2': '😓', '3': '😐', '4': '🙂', '5': '😁' };
+        
+        let myChart = null; // 圖表實例
+
+        // --- 初始化 ---
+        dateInput.valueAsDate = new Date();
+        loadAll(); // 載入資料與圖表
+
+        // --- 邏輯功能 ---
+
+        // 1. 自動計算配速
+        function calculatePace() {
+            const km = parseFloat(distInput.value);
+            const mins = parseFloat(durInput.value);
+            if (km > 0 && mins > 0) {
+                const paceDecimal = mins / km;
+                const paceMin = Math.floor(paceDecimal);
+                const paceSec = Math.round((paceDecimal - paceMin) * 60);
+                const secStr = paceSec < 10 ? '0' + paceSec : paceSec;
+                paceInput.value = `${paceMin}:${secStr}`;
+            } else {
+                paceInput.value = "--:--";
+            }
+        }
+        distInput.addEventListener('input', calculatePace);
+        durInput.addEventListener('input', calculatePace);
+
+        // 2. 提交表單
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const newLog = {
+                id: Date.now(),
+                date: dateInput.value,
+                distance: parseFloat(distInput.value),
+                duration: parseFloat(durInput.value),
+                pace: paceInput.value,
+                heartRate: document.getElementById('heartRate').value,
+                comfort: document.querySelector('input[name="comfort"]:checked').value
+            };
+
+            const logs = JSON.parse(localStorage.getItem('runLogs')) || [];
+            logs.unshift(newLog); // 加到最前
+            localStorage.setItem('runLogs', JSON.stringify(logs));
+
+            loadAll(); // 重新渲染列表與圖表
+            form.reset();
+            dateInput.valueAsDate = new Date();
+            paceInput.value = "--:--";
+        });
+
+        // 3. 刪除紀錄
+        window.deleteLog = function(id) {
+            if(confirm('刪除此筆紀錄？')) {
+                let logs = JSON.parse(localStorage.getItem('runLogs')) || [];
+                logs = logs.filter(log => log.id !== id);
+                localStorage.setItem('runLogs', JSON.stringify(logs));
+                loadAll();
+            }
+        };
+
+        // 4. 主載入函式 (整合列表與圖表)
+        function loadAll() {
+            const logs = JSON.parse(localStorage.getItem('runLogs')) || [];
+            renderList(logs);
+            renderChart(logs);
+        }
+
+        // 5. 渲染列表
+        function renderList(logs) {
+            logList.innerHTML = '';
+            if (logs.length === 0) {
+                logList.innerHTML = '<div class="empty-state">尚未有資料，開始跑起來吧！</div>';
+                return;
+            }
+            logs.forEach(log => {
+                const html = `
+                    <div class="log-card">
+                        <div class="log-info">
+                            <div class="log-date">${log.date}</div>
+                            <div class="log-stats">
+                                <div class="stat-dist">${log.distance} <span>km</span></div>
+                                <div class="stat-pace">@ ${log.pace}</div>
+                            </div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="font-size:1.5rem;">${comfortEmojis[log.comfort]}</div>
+                            <button class="btn-delete" onclick="deleteLog(${log.id})">×</button>
+                        </div>
+                    </div>
+                `;
+                logList.innerHTML += html;
+            });
+        }
+
+        // 6. 渲染圖表 (Chart.js 核心邏輯)
+        function renderChart(logs) {
+            const ctx = document.getElementById('runChart').getContext('2d');
+            
+            // 準備數據：取得過去 7 天的日期標籤
+            const labels = [];
+            const dataPoints = [];
+            
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const dateStr = d.toISOString().split('T')[0]; // 格式 YYYY-MM-DD
+                
+                // 產生 X 軸標籤 (例如: 01/30)
+                labels.push(dateStr.slice(5).replace('-', '/'));
+
+                // 計算當日總里程
+                const totalDist = logs
+                    .filter(log => log.date === dateStr)
+                    .reduce((sum, log) => sum + log.distance, 0);
+                
+                dataPoints.push(totalDist);
+            }
+
+            // 如果圖表已存在，先銷毀舊的再重繪 (避免重疊)
+            if (myChart) {
+                myChart.destroy();
+            }
+
+            // 設定圖表樣式
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '公里數 (km)',
+                        data: dataPoints,
+                        backgroundColor: '#6A9C89',
+                        borderRadius: 4,
+                        hoverBackgroundColor: '#FFB085'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }, // 隱藏圖例
+                        tooltip: {
+                            backgroundColor: 'rgba(44, 62, 80, 0.9)',
+                            padding: 10,
+                            cornerRadius: 8,
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: '#f0f0f0',
+                                borderDash: [5, 5]
+                            },
+                            ticks: { color: '#95A5A6' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#95A5A6' }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
